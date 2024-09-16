@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Clone</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #DAE0E6;
+        }
+        header {
+            background-color: #FF4500;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+            padding: 20px;
+        }
+        .post {
+            background-color: white;
+            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .post h2 {
+            margin-top: 0;
+        }
+        .vote-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            float: left;
+            margin-right: 15px;
+        }
+        .vote-buttons button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .vote-buttons button.voted {
+            color: #FF4500;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .user-info img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .post-image {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+        .new-post {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .new-post input, .new-post textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .new-post button {
+            background-color: #FF4500;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Reddit Clone</h1>
+    </header>
+    <div class="container">
+        <div class="new-post">
+            <h2>Create a New Post</h2>
+            <input type="text" id="post-title" placeholder="Post Title">
+            <textarea id="post-content" placeholder="Post Content"></textarea>
+            <input type="file" id="post-image" accept="image/*">
+            <button onclick="createPost()">Submit Post</button>
+        </div>
+        <div id="posts-container">
+            <!-- Posts will be dynamically added here -->
+        </div>
+    </div>
+    <script>
+        let posts = [];
+
+        function fetchPosts() {
+            fetch('/api/posts')
+                .then(response => response.json())
+                .then(data => {
+                    posts = data;
+                    renderPosts();
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function renderPosts() {
+            const postsContainer = document.getElementById('posts-container');
+            postsContainer.innerHTML = '';
+            posts.forEach((post, index) => {
+                const postElement = document.createElement('div');
+                postElement.className = 'post';
+                postElement.innerHTML = `
+                    <div class="vote-buttons">
+                        <button onclick="vote(${index}, 1)" class="${post.userVote === 1 ? 'voted' : ''}">&#9650;</button>
+                        <span>${post.votes}</span>
+                        <button onclick="vote(${index}, -1)" class="${post.userVote === -1 ? 'voted' : ''}">&#9660;</button>
+                    </div>
+                    <div class="user-info">
+                        <img src="${post.userImage}" alt="${post.username}">
+                        <span>${post.username}</span>
+                    </div>
+                    <h2>${post.title}</h2>
+                    <p>${post.content}</p>
+                    ${post.postImage ? `<img src="${post.postImage}" alt="Post image" class="post-image">` : ''}
+                `;
+                postsContainer.appendChild(postElement);
+            });
+        }
+
+        function vote(index, value) {
+            fetch(`/api/posts/${posts[index].id}/vote`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ value: value }),
+            })
+            .then(response => response.json())
+            .then(updatedPost => {
+                posts[index] = updatedPost;
+                renderPosts();
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function createPost() {
+            const title = document.getElementById('post-title').value;
+            const content = document.getElementById('post-content').value;
+            const imageFile = document.getElementById('post-image').files[0];
+
+            if (title && content) {
+                const formData = new FormData();
+                formData.append('title', title);
+                formData.append('content', content);
+                if (imageFile) {
+                    formData.append('image', imageFile);
+                }
+
+                fetch('/api/posts', {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(newPost => {
+                    fetchPosts();
+                    // Clear the form
+                    document.getElementById('post-title').value = '';
+                    document.getElementById('post-content').value = '';
+                    document.getElementById('post-image').value = '';
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        }
+
+        // Initial fetch
+        fetchPosts();
+
+        // Fetch posts every 30 seconds
+        setInterval(fetchPosts, 30000);
+    </script>
+</body>
+</html>
